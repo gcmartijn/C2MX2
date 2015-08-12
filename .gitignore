@@ -1,2 +1,4 @@
 
 *.cachefile
+example/sdl3/include
+example/sdl3/src
