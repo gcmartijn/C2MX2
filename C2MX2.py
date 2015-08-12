@@ -403,6 +403,7 @@ import "<ForceFeedback.framework>"
 
 if __name__ == "__main__":
 
+    # test
     # download and unpack SDL2 here: http://www.libsdl.org/download-2.0.php
     c2mx2 = C2MX2(headersFilePath='../Downloads/SDL2-2.0.3/include/',
                   sourcesFilePath='../Downloads/SDL2-2.0.3/src/',
