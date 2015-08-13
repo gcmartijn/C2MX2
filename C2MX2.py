@@ -1,11 +1,9 @@
 import pyclibrary
-# download/install from https://github.com/MatthieuDartiailh/pyclibrary
-# after that update this file pyclibrary/c_parser.py (latest fix)
-# https://github.com/MatthieuDartiailh/pyclibrary/blob/master/pyclibrary/c_parser.py
 
 
 import os
 import shutil, errno
+import re
 
 def recursive_file_gen(mydir):
     for root, dirs, files in os.walk(mydir):
@@ -38,10 +36,13 @@ class C2MX2:
     sourcesFilePath = None
     outputPath = None
     namespace = None
+    convertEnums2Const = False
     header_files = []
     source_files = []
+
+    const = []
     
-    def __init__(self,headersFilePath=None,sourcesFilePath=None,outputPath=None,namespace=None,extractOnlyThisPrefix=None):
+    def __init__(self,headersFilePath=None,sourcesFilePath=None,outputPath=None,namespace=None,extractOnlyThisPrefix=None,convertEnums2Const=False):
         if sourcesFilePath!=None:
             self.sourcesFilePath = sourcesFilePath
             self.findSourceFiles(sourcesFilePath)
@@ -57,7 +58,7 @@ class C2MX2:
             print 'need outputPath and namespace'
 
         self.extractOnlyThisPrefix = extractOnlyThisPrefix
-        
+        self.convertEnums2Const = convertEnums2Const        
         if self.namespace!=None and len(self.source_files)>0 and len(self.header_files)>0:
             self.startParse()
         else:
@@ -72,8 +73,10 @@ class C2MX2:
 
         # start parsing/creating
         writeContentToFile(self.outputPath+'/'+self.namespace+'.monkey2',"Namespace "+self.namespace+'\nImport "makefile.monkey2"\n\nExtern\n')
+
+        # keep this order
         self.createConst()
-        self.createEnums()
+        self.createEnums()      # so we can check if the Const alreay exists
         self.createMethods()
         self.createStructs()
         self.createUsingUnions()
@@ -179,7 +182,7 @@ import "<libversion.a>"
 """
         outstr += "'source files\n"
         for file_path_name in self.source_files:
-            outstr += "import \""+file_path_name.replace("src/"+self.sourcesFilePath,"")+"\n"
+            outstr += "import \""+file_path_name.replace("src/"+self.sourcesFilePath,"")+'"\n'
         
         writeContentToFile(self.outputPath+'/makefile_windows.monkey2',outstr)
         
@@ -200,7 +203,7 @@ import "<ForceFeedback.framework>"
 """
         outstr += "'source files\n"
         for file_path_name in self.source_files:
-            outstr += "import \""+file_path_name.replace("src/"+self.sourcesFilePath,"")+"\n"
+            outstr += "import \""+file_path_name.replace("src/"+self.sourcesFilePath,"")+'"\n'
         
         writeContentToFile(self.outputPath+'/makefile_macos.monkey2',outstr)
                 
@@ -234,6 +237,8 @@ import "<ForceFeedback.framework>"
                 return 'String'
             elif "float" in instr or "double" in instr:
                 return "Float"
+            elif instr=="???" or not re.match(r'\A[\w-]+\Z', instr):
+                return False
             else:
                 return instr+" Ptr" # its not a Void/int/string/float so its a Ptr
         elif type(instr) is tuple:
@@ -288,7 +293,8 @@ import "<ForceFeedback.framework>"
                         outstr[name] = outstr[name][:-2]+'\n'
                         
                 outstr[name] += 'End'
-        return outstr
+                
+        self.dict2File(outstr,self.outputPath+'/'+self.namespace+'.monkey2','a+')
 
 
     def createUsingUnions(self):
@@ -334,17 +340,20 @@ import "<ForceFeedback.framework>"
 
 
     def createConst(self):
-        outstr = {}    
+        self.const = {}    
         for name,value in self.p.defs['values'].iteritems():
             if self.extractOnlyThisPrefix==None or name[:len(self.extractOnlyThisPrefix)]==self.extractOnlyThisPrefix:
                 if value!=None:
                     m_type = self.CtoMonkey2Type(value)
-                    if m_type == 'unicode':
-                        m_type = 'Int' # not really, need to check this
-                        
-                    outstr[name] = 'Const '+name+':'+m_type
+                    if m_type==False:
+                        print 'cannot convert const: '+name+' type: '+value
+                    else:
+                        if m_type == 'unicode':
+                            m_type = 'Int' # not really, need to check this
+                                            
+                        self.const[name] = 'Const '+name+':'+m_type
 
-        self.dict2File(outstr,self.outputPath+'/'+self.namespace+'.monkey2','a+')
+        self.dict2File(self.const,self.outputPath+'/'+self.namespace+'.monkey2','a+')
 
 
                 
@@ -357,17 +366,27 @@ import "<ForceFeedback.framework>"
         for enum in self.p.defs['enums']:
             name = self.find(self.p.defs['types'],'enum '+enum)
             if name!=None:
-                outstr[name] = 'Enum '+name+'\n'
-
+                if self.convertEnums2Const==False:
+                    outstr[name] = 'Enum '+name+'\n'
+                      
                 if enum in self.p.defs['enums']:
                     for dec_name, dec_type in self.p.defs['enums'][enum].iteritems():
+                        if isinstance(dec_name, unicode):
+                            dec_name = dec_name.encode('ascii','ignore')
+                
 #                        outstr[name] += '\t'+dec_name+',\n'
-                        outstr[name] += '\t'+dec_name+'='+str(dec_type)+',\n'
-                            
-                    if outstr[name][-2:]==',\n':
+                        if self.convertEnums2Const==False:
+                            outstr[name] += '\t'+dec_name+'='+str(dec_type)+',\n'
+                        else:
+                            # create const
+                            if dec_name not in self.const:
+                                outstr[dec_name] = 'Const '+dec_name+':Int'
+                
+                    if self.convertEnums2Const==False and outstr[name][-2:]==',\n':
                         outstr[name] = outstr[name][:-2]+'\n'
-                    
-                outstr[name] += 'End'
+
+                if self.convertEnums2Const==False:
+                    outstr[name] += 'End'
             
         self.dict2File(outstr,self.outputPath+'/'+self.namespace+'.monkey2','a+')
                                           
@@ -402,13 +421,14 @@ import "<ForceFeedback.framework>"
 
 
 if __name__ == "__main__":
-
-    # test
-    # download and unpack SDL2 here: http://www.libsdl.org/download-2.0.php
-    c2mx2 = C2MX2(headersFilePath='../Downloads/SDL2-2.0.3/include/',
-                  sourcesFilePath='../Downloads/SDL2-2.0.3/src/',
-                  outputPath='/Applications/monkey2/modules/',
+    c2mx2 = C2MX2(headersFilePath='../../Downloads/SDL2-2.0.3/include/',
+                  sourcesFilePath='../../Downloads/SDL2-2.0.3/src/',
+                  outputPath='example/',
                   namespace='sdl3', # <= when everything works sld2
-                  extractOnlyThisPrefix='SDL_')
+                  extractOnlyThisPrefix='SDL_',
+                  convertEnums2Const=True)
 
+
+# my monkey2 module path: /Applications/monkey2/modules/
+# github path: example/
 

@@ -1,0 +1,34 @@
+ 
+enum verwijzing naar een andere enum
+ u'SDL_HINT_VIDEO_ALLOW_SCREENSAVER': u'SDL_VIDEO_ALLOW_SCREENSAVER',
+gewoon int van maken..
+
+
+'Const SDL_TriggerBreakpoint:tuple Ptr
+
+
+
+SDL_Event struct staat er nog niet bij.
+
+
+
+typedef void (SDLCALL * SDL_AudioCallback) (void *userdata, Uint8 * stream,int len);
+
+
+
+Const SDL_FUNCTION:??? Ptr weg (assert)
+Const SDL_VIDEO_DRIVER_X11_DYNAMIC_XVIDMODE:/usr/X11R6/lib/libXxf86vm.1.dylib Ptr
+Const SDL_VIDEO_DRIVER_X11_DYNAMIC_XINERAMA:/usr/X11R6/lib/libXinerama.1.dylib Ptr
+Const SDL_VIDEO_DRIVER_X11_DYNAMIC_XEXT:/usr/X11R6/lib/libXext.6.dylib Ptr
+Const SDL_VIDEO_DRIVER_X11_DYNAMIC_XSS:/usr/X11R6/lib/libXss.1.dylib Ptr
+Const SDL_VIDEO_DRIVER_X11_DYNAMIC_XRANDR:/usr/X11R6/lib/libXrandr.2.dylib Ptr
+
+Const SDL_VIDEO_DRIVER_X11_DYNAMIC_XINPUT2:/usr/X11R6/lib/libXi.6.dylib Ptr
+Const SDL_VIDEO_DRIVER_X11_DYNAMIC_XRANDR:String ="/usr/X11R6/lib/libXrandr.2.dylib"
+of
+Const SDL_VIDEO_DRIVER_X11_DYNAMIC_XRANDR:String
+
+Const SDL_REVISION:hg-8628:b558f99d48f0 Ptr
+
+
+add module to the module file
