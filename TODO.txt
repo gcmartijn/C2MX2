@@ -1,8 +1,4 @@
 
 check
-- Const SDL_TriggerBreakpoint:tuple Ptr
-- SDL_Event check
 - typedef void (SDLCALL * SDL_AudioCallback) (void *userdata, Uint8 * stream,int len);
-
-
-add module to the module file
+- add module to the module file

@@ -209,15 +209,26 @@ import "<ForceFeedback.framework>"
                 
     
     def isforbiddenName(self, instr):
-        a = ['void','strict','public','private','property','bool','int','float','string','array',
-    'object','mod','continue','exit','import','extern','new','self','super','try','catch',
-    'eachin','true','false','not','extends','abstract','final','select','case','default',
-    'const','local','global','field','method','function','class','and','or','shl','shr',
-    'end','if','then','else','elseIf','endIf','while','wend','repeat','until','forever',
-    'for','to','step','next','return','module','interface','implements','inline','throw']
-        return any(x in instr.lower() for x in a)
+        try:
+            if type(instr) is str or type(instr) is unicode:
+                return (re.match('|'.join([r'\bvoid\b',r'\bstrict\b',r'\bpublic\b',r'\bprivate\b',r'\bproperty\b',r'\bbool\b',r'\bint\b',r'\bfloat\b',r'\bstring\b',r'\barray\b',
+    r'object\b',r'\bmod\b',r'\bcontinue\b',r'\bexit\b',r'\bimport\b',r'\bextern\b',r'\bnew\b',r'\bself\b',r'\bsuper\b',r'\btry\b',r'\bcatch\b',
+    r'eachin\b',r'\btrue\b',r'\bfalse\b',r'\bnot\b',r'\bextends\b',r'\babstract\b',r'\bfinal\b',r'\bselect\b',r'\bcase\b',r'\bdefault\b',
+    r'const\b',r'\blocal\b',r'\bglobal\b',r'\bfield\b',r'\bmethod\b',r'\bfunction\b',r'\bclass\b',r'\band\b',r'\bor\b',r'\bshl\b',r'\bshr\b',
+    r'end\b',r'\bif\b',r'\bthen\b',r'\belse\b',r'\belseIf\b',r'\bendIf\b',r'\bwhile\b',r'\bwend\b',r'\brepeat\b',r'\buntil\b',r'\bforever\b',
+    r'for\b',r'\bto\b',r'\bstep\b',r'\bnext\b',r'\breturn\b',r'\bmodule\b',r'\binterface\b',r'\bimplements\b',r'\binline\b',r'\bthrow\b']),instr.lower())!=None)
+        except Exception, e:
+            print e,instr
+        return False
 
-
+    def isMonkeyType(self,instr):
+        try:
+            if type(instr) is str or type(instr) is unicode:
+                return (re.match(r'\bVoid\b|\bInt\b|\bFloat\b|\bString\b|\bBool\b',instr)!=None)
+        except Exception, e:
+            print e,instr
+        return False
+        
     def CtoMonkey2Type(self,instr):
         if instr == None:
             return 'Void'
@@ -240,7 +251,7 @@ import "<ForceFeedback.framework>"
             elif instr=="???" or not re.match(r'\A[\w-]+\Z', instr):
                 return False
             else:
-                return instr+" Ptr" # its not a Void/int/string/float so its a Ptr
+                return instr # its not a Void/int/string/float etc
         elif type(instr) is tuple:
             print 'tuple gevonden'
             return "Void"
@@ -255,35 +266,73 @@ import "<ForceFeedback.framework>"
             
     def createStructs(self):
         outstr = {}
+
+        # find anon structs inside the types
+        for name,value in self.p.defs['types'].iteritems():
+            if name.find('struct ')!=-1:
+                name = name.replace('struct ','') 
+                outstr[name] = 'Struct '+name+'\nEnd\n'
+                
         for struct in self.p.defs['structs']:
             name = self.find(self.p.defs['types'],'struct '+struct)
-            if name!=None:
+            if name!=None:                   
                 outstr[name] = 'Struct '+name+'\n'
 
                 if struct in self.p.defs['structs']:
                     for dec_name, dec_types in self.p.defs['structs'][struct].iteritems():
      #                   print dec_name
-                        #print dec_type
                         if dec_types!=None:
                             for i in enumerate(dec_types):
                                 n = i[1][0]     # name
                                 t = i[1][1][0]  # type
+                                mt = self.CtoMonkey2Type(t) # possible monkey type
 
+                                # its not a monkey type
+                                # search what it is
+                                if self.isMonkeyType(mt)==False:
+
+                                    # check this first
+                                    if t.find('struct ')!=-1:
+                                        # what to do here :S
+                                        # u'union anon_union0': Type(u'union', u'anon_union0')
+                                        # at the moment strip the word union and it will point to anon_union0
+                                        mt = t.replace('struct ','')
+                                    elif t.find('union ')!=-1:
+                                        # what to do here :S
+                                        # u'union anon_union0': Type(u'union', u'anon_union0')
+                                        # at the moment strip the word union and it will point to anon_union0
+                                        mt = t.replace('union ','')
+                                    elif t.find('enum ')!=-1:
+                                        # I don't know if this enum is possible...
+                                        # what to do here :S
+                                        # u'union anon_union0': Type(u'union', u'anon_union0')
+                                        # at the moment strip the word union and it will point to anon_union0
+                                        mt = t.replace('enum ','')
+
+                                    elif self.p.defs['types'][t]:
+                                        #print type(self.p.defs['types'][t]),self.p.defs['types'][t][0]
+                                        if self.p.defs['types'][t][0].find('struct ')!=-1:
+                                            pass
+                                        elif self.p.defs['types'][t][0].find('union ')!=-1:
+                                            pass
+                                        elif self.p.defs['types'][t][0].find('enum ')!=-1:
+                                            pass
+                                        else:
+                                            mt = self.CtoMonkey2Type(self.p.defs['types'][t][0])
+
+                                
                                 # Field end_:Int="end"
                                 if self.isforbiddenName(n):
                                     n = n+"_"
                                     
-                                # if t == 'struct SDL_BlitMap'
-                                t = t.replace('struct ','')
-                                t = t.replace('union ','')
                                 
-    #                            s = ""
-     #                           if len(i[1][1])>1:
-    #                                if i[1][1][1]=="*":  # *
-    #                                    s = " Ptr"
-                                
-      # #                         print t,n,s
-                                outstr[name] += '\tField '+n+':'+self.CtoMonkey2Type(t)
+                                p = ""
+                                if len(i[1][1])>1:
+                                    if i[1][1][1]=="*":
+                                        p = " Ptr"
+
+#                                print name,n,mt
+                                outstr[name] += '\tField '+n+':'+mt+p
                                 if self.isforbiddenName(n):
                                     outstr[name] += '="'+n[:-1]+'"\n'
                                 else:
@@ -307,13 +356,22 @@ import "<ForceFeedback.framework>"
                         if b!=None:
                             for i in enumerate(b):
                                 n = i[1][0]
-                                t = i[1][1][0]
-
+                                t = self.CtoMonkey2Type(i[1][1][0])
+                                p = i[1][1][0]
+                                
                                 if self.isforbiddenName(n):
                                     n = n+"_"
                                     
                                 outstr[name] += '\tField '+n+':'+self.CtoMonkey2Type(t)
 
+                                if p=='*': # this never happen...
+                                    outstr[name] += ' Ptr'
+                                # so we assume that its a pointer for the moment
+                                # when its not a monkeyType
+                                if self.isMonkeyType(t)==False:
+                                    outstr[name] += ' Ptr'
+                                
+                                    
                                 if self.isforbiddenName(n):
                                     outstr[name] += '="'+n[:-1]+'"\n'
                                 else:
@@ -346,11 +404,9 @@ import "<ForceFeedback.framework>"
                 if value!=None:
                     m_type = self.CtoMonkey2Type(value)
                     if m_type==False:
-                        print 'cannot convert const: '+name+' type: '+value
+                        pass
+                        #print 'cannot convert const: '+name+' type: '+value
                     else:
-                        if m_type == 'unicode':
-                            m_type = 'Int' # not really, need to check this
-                                            
                         self.const[name] = 'Const '+name+':'+m_type
 
         self.dict2File(self.const,self.outputPath+'/'+self.namespace+'.monkey2','a+')
@@ -360,9 +416,14 @@ import "<ForceFeedback.framework>"
            
     def createEnums(self):
         outstr = {}
-     #   print(p.defs['types']['SDL_Scancode'])
-     #   find(p.defs['types'],'enum anonEnum27') # to get SDL_Scancode
-        
+
+        # find anon enums inside the types
+        for name,value in self.p.defs['types'].iteritems():
+            if value[0].find('enum ')!=-1:
+                # at the moment create empty enum
+                # find(p.defs['types'],'enum anonEnum27') # to get the link to the enum
+                outstr[name] = 'Enum '+name+'\nEnd\n'
+                  
         for enum in self.p.defs['enums']:
             name = self.find(self.p.defs['types'],'enum '+enum)
             if name!=None:
@@ -396,8 +457,12 @@ import "<ForceFeedback.framework>"
 
         for func in self.p.defs['functions']:
             func_decl_return_type = self.p.defs['functions'][func][0][0]
-               
-            outstr[func] = 'Function '+func+':'+self.CtoMonkey2Type(func_decl_return_type)+'('
+            func_decl_return_type_p = ""
+            if len(self.p.defs['functions'][func][0])>1:
+                if self.p.defs['functions'][func][0][1]=='*':
+                    func_decl_return_type_p = " Ptr"
+                    
+            outstr[func] = 'Function '+func+':'+self.CtoMonkey2Type(func_decl_return_type)+func_decl_return_type_p+'('
 
             # parameters
             for func_decl in self.p.defs['functions'][func][1]:
@@ -405,8 +470,8 @@ import "<ForceFeedback.framework>"
      #               func_decl[1][0] # var type
                 par_type_name = self.CtoMonkey2Type(func_decl[1][0])
                 
-     #           if par_type_name!="String" and len(func_decl[1])==2 and func_decl[1][1]=='*':
-    #                par_type_name = par_type_name+' Ptr'
+                if par_type_name!="String" and len(func_decl[1])==2 and func_decl[1][1]=='*':
+                    par_type_name = par_type_name+' Ptr'
 
                 #print par_type_name
                 
